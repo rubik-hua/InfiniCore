@@ -3,9 +3,8 @@
 #include <stdexcept>
 
 namespace infinicore::nn {
-const std::unordered_map<std::string, Parameter> &Module::state_dict() const {
-    static std::unordered_map<std::string, Parameter> result;
-    result.clear();
+std::unordered_map<std::string, Parameter> Module::state_dict() const {
+    std::unordered_map<std::string, Parameter> result;
 
     collect_all_parameters(result, "");
 
@@ -32,6 +31,24 @@ void Module::load_parameter(const std::string &name, const Tensor &param) {
 
     // Parameter not found
     spdlog::debug("load_parameter_: Parameter '{}' not found. Available: {} params",
+                  name, parameters_.size());
+    throw std::runtime_error("Parameter '" + name + "' not found in module.");
+}
+
+void Module::load_parameter_no_sync(const std::string &name, const Tensor &param) {
+    auto all_params = state_dict();
+    auto it = all_params.find(name);
+    if (it != all_params.end()) {
+        auto existing_param = it->second;
+        try {
+            existing_param.load_no_sync(param);
+        } catch (const std::exception &e) {
+            throw std::runtime_error("Error loading parameter '" + name + "'. \n" + e.what());
+        }
+        return;
+    }
+
+    spdlog::debug("load_parameter_no_sync: Parameter '{}' not found. Available: {} params",
                   name, parameters_.size());
     throw std::runtime_error("Parameter '" + name + "' not found in module.");
 }
